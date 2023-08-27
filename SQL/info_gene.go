@@ -3,7 +3,6 @@ package SQL
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"uploader/common"
@@ -132,9 +131,11 @@ func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload,
 	return MapVideo, nil
 }
 
-func GetAllVideoID(db *sql.DB) (map[int]string, error) {
+func GetAllVideoID(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
 
-	function := "[GetAllVideoID]"
+	Function := "[GetAllVideoID]"
+
+	var line int
 
 	var object_video sql.NullString
 
@@ -144,20 +145,35 @@ func GetAllVideoID(db *sql.DB) (map[int]string, error) {
 
 	results, err := db.Query(query)
 	if err != nil {
-		fmt.Println(function, "- line 21 : error on query SELECT : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Query SELECT",
+			"error":    err,
+		}).Error()
 		return nil, err
 	}
 
 	for results.Next() {
 		err = results.Scan(&object_video)
 		if err != nil {
-			fmt.Println(function, "- line 29 : error on scan SELECT : ", err)
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on Query SCAN",
+				"error":    err,
+			}).Error()
 			return nil, err
 		}
 
 		if object_video.String == "" {
+			line = common.GetLine() - 1
 			err = errors.New("video_id ne peut être vide")
-			fmt.Println("Get video_id error : ", err)
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - get video_id error",
+				"error":    err,
+			}).Error()
 			return nil, err
 		}
 
@@ -169,47 +185,69 @@ func GetAllVideoID(db *sql.DB) (map[int]string, error) {
 	return MapVideoID, nil
 }
 
-func PostVideo(db *sql.DB, Video common.Upload) error {
+func PostVideo(logSQL *log.Logger, db *sql.DB, Video common.Upload) error {
 
-	function := "[GetData]"
+	Function := "[GetData]"
+
+	var line int
 
 	query1 := "INSERT INTO `projet_uploader`.info_gene (`name`,`description`,`date`, `object_video`) VALUE (?,?,NOW(),?);"
 	query2 := "INSERT INTO `projet_uploader`.video (`video_id`,`file_name`,`path`) VALUE (?,?,?);"
 
 	stmt, err := db.Prepare(query1)
 	if err != nil {
-		fmt.Println(function+"- line 149 : error on db.Prepare INSERT 1  : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Prepare INSERT 1",
+			"error":    err,
+		}).Error()
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(Video.Name, Video.Description, Video.Object_video.Video_id)
 	if err != nil {
-		fmt.Println(function+"- line 154 : error on db.Exec INSERT 1 : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Exec INSERT 1",
+			"error":    err,
+		}).Error()
 		return err
 	}
 
 	stmt2, err := db.Prepare(query2)
 	if err != nil {
-		fmt.Println(function+"- line 160 : error on db.Prepare INSERT 2 : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Prepare INSERT 2",
+			"error":    err,
+		}).Error()
 		return err
 	}
 	defer stmt2.Close()
 
 	_, err = stmt2.Exec(Video.Object_video.Video_id, Video.Object_video.File_name, Video.Object_video.Path)
 	if err != nil {
-		fmt.Println(function+"- line 167 : error on db.Exec INSERT 2 : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Exec INSERT 2",
+			"error":    err,
+		}).Error()
 		return err
 	}
 
 	return nil
 }
 
-func UpdateOneUpload(db *sql.DB, Body common.Upload, id int) error {
+func UpdateOneUpload(logSQL *log.Logger, db *sql.DB, Body common.Upload, id int) error {
 
-	//Function := "[UpdateOneUpload]"
+	Function := "[UpdateOneUpload]"
 
-	//var line int
+	var line int
 
 	qParts := make([]string, 0)
 	args := make([]interface{}, 0)
@@ -239,12 +277,82 @@ func UpdateOneUpload(db *sql.DB, Body common.Upload, id int) error {
 
 	stmt, err := db.Prepare(query)
 	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Prepare ",
+			"error":    err,
+		}).Error()
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(args...)
 	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on db.Exec ",
+			"error":    err,
+		}).Error()
+		return err
+	}
+
+	return nil
+}
+
+func DeleteOneUpload(logSQL *log.Logger, db *sql.DB, upload common.Upload) error {
+
+	Function := "[DeleteOneUpload]"
+
+	var line int
+
+	query1 := "DELETE FROM `projet_uploader`.`video` WHERE  `video_id` = ?;"
+	query2 := "DELETE FROM `projet_uploader`.`info_gene` WHERE  `id` = ?;"
+
+	stmt1, err := db.Prepare(query1)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Prepare 1",
+			"error":    err,
+		}).Error()
+		return err
+	}
+	defer stmt1.Close()
+
+	_, err = stmt1.Exec(upload.Object_video.Video_id)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Exec 1",
+			"error":    err,
+		}).Error()
+		return err
+	}
+
+	stmt2, err := db.Prepare(query2)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Prepare 2",
+			"error":    err,
+		}).Error()
+		return err
+	}
+	defer stmt2.Close()
+
+	_, err = stmt2.Exec(upload.Id)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Exec 2",
+			"error":    err,
+		}).Error()
 		return err
 	}
 

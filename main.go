@@ -44,6 +44,7 @@ func main() {
 	r.HandleFunc("/video", video.GetAllData).Methods("GET")
 	r.HandleFunc("/video/{id}", video.OperationOneData).Methods("GET")
 	r.HandleFunc("/video/{id}", video.OperationOneData).Methods("PUT")
+	r.HandleFunc("/video/{id}", video.OperationOneData).Methods("DELETE")
 	r.HandleFunc("/video/{id}/file", video.GetVideoOneData).Methods("GET")
 	r.HandleFunc("/upload_video", video.UploadVideo).Methods("POST")
 

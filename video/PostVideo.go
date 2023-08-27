@@ -126,7 +126,7 @@ func UploadVideo(w http.ResponseWriter, r *http.Request) {
 		//--------------------------------------------------------------------------
 
 		//-----------------------------Create IdVideo-------------------------------
-		MapVideoID, err := SQL.GetAllVideoID(Controler.DB)
+		MapVideoID, err := SQL.GetAllVideoID(Controler.LogControl, Controler.DB)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
@@ -170,7 +170,7 @@ func UploadVideo(w http.ResponseWriter, r *http.Request) {
 			Object_video: OneVideo,
 		}
 
-		err = SQL.PostVideo(Controler.DB, OneUpload)
+		err = SQL.PostVideo(Controler.LogControl, Controler.DB, OneUpload)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
