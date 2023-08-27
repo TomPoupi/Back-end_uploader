@@ -358,3 +358,61 @@ func DeleteOneUpload(logSQL *log.Logger, db *sql.DB, upload common.Upload) error
 
 	return nil
 }
+
+func DeleteAllUpload(logSQL *log.Logger, db *sql.DB) error {
+
+	Function := "[DeleteAllUpload]"
+
+	var line int
+
+	query1 := "DELETE FROM `projet_uploader`.`video`;"
+	query2 := "DELETE FROM `projet_uploader`.`info_gene`;"
+
+	stmt1, err := db.Prepare(query1)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Prepare 1",
+			"error":    err,
+		}).Error()
+		return err
+	}
+	defer stmt1.Close()
+
+	_, err = stmt1.Exec()
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Exec 1",
+			"error":    err,
+		}).Error()
+		return err
+	}
+
+	stmt2, err := db.Prepare(query2)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Prepare 2",
+			"error":    err,
+		}).Error()
+		return err
+	}
+	defer stmt2.Close()
+
+	_, err = stmt2.Exec()
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Exec 2",
+			"error":    err,
+		}).Error()
+		return err
+	}
+
+	return nil
+}

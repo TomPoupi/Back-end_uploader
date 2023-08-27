@@ -315,7 +315,7 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - OperationOneData PUT Done",
+			"comment":  "L" + strconv.Itoa(line) + " - OperationOneData DELETE Done",
 		}).Info()
 		//--------------------------------------------------------------------------
 
