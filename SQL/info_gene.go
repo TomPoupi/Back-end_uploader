@@ -7,10 +7,15 @@ import (
 	"strconv"
 	"strings"
 	"uploader/common"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func GetVideo(db *sql.DB, MapVideo map[int]common.Upload) (map[int]common.Upload, error) {
-	function := "[GetVideo]"
+func GetVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.Upload, error) {
+
+	Function := "[GetVideo]"
+	var line int
+
 	var Id int
 	var Name sql.NullString
 	var Description sql.NullString
@@ -19,19 +24,31 @@ func GetVideo(db *sql.DB, MapVideo map[int]common.Upload) (map[int]common.Upload
 	var File_name sql.NullString
 	var Path sql.NullString
 
+	MapVideo := make(map[int]common.Upload)
+
 	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path` FROM `projet_uploader`.info_gene" +
 		" INNER JOIN `video` ON `object_video` = `video`.`video_id`;"
 
 	results, err := db.Query(query)
 	if err != nil {
-		fmt.Println(function, "- line 21 : error on query SELECT : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Query SELECT",
+			"error":    err,
+		}).Error()
 		return nil, err
 	}
 
 	for results.Next() {
 		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path)
 		if err != nil {
-			fmt.Println(function, "- line 29 : error on scan SELECT : ", err)
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on Query SCAN",
+				"error":    err,
+			}).Error()
 			return nil, err
 		}
 
@@ -54,8 +71,11 @@ func GetVideo(db *sql.DB, MapVideo map[int]common.Upload) (map[int]common.Upload
 	return MapVideo, nil
 }
 
-func GetOneVideo(db *sql.DB, MapVideo map[int]common.Upload, id int) (map[int]common.Upload, error) {
-	function := "[GetData]"
+func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload, error) {
+
+	Function := "[GetOneVideo]"
+	var line int
+
 	var Id int
 	var Name sql.NullString
 	var Description sql.NullString
@@ -64,20 +84,32 @@ func GetOneVideo(db *sql.DB, MapVideo map[int]common.Upload, id int) (map[int]co
 	var File_name sql.NullString
 	var Path sql.NullString
 
+	MapVideo := make(map[int]common.Upload)
+
 	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path` FROM `projet_uploader`.info_gene" +
 		" INNER JOIN `video` ON `object_video` = `video`.`video_id`" +
 		" WHERE `id` = ?;"
 
 	results, err := db.Query(query, id)
 	if err != nil {
-		fmt.Println(function, "- line 21 : error on query SELECT : ", err)
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Query SELECT",
+			"error":    err,
+		}).Error()
 		return nil, err
 	}
 
 	for results.Next() {
 		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path)
 		if err != nil {
-			fmt.Println(function, "- line 29 : error on scan SELECT : ", err)
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on Query SCAN",
+				"error":    err,
+			}).Error()
 			return nil, err
 		}
 
@@ -167,6 +199,52 @@ func PostVideo(db *sql.DB, Video common.Upload) error {
 	_, err = stmt2.Exec(Video.Object_video.Video_id, Video.Object_video.File_name, Video.Object_video.Path)
 	if err != nil {
 		fmt.Println(function+"- line 167 : error on db.Exec INSERT 2 : ", err)
+		return err
+	}
+
+	return nil
+}
+
+func UpdateOneUpload(db *sql.DB, Body common.Upload, id int) error {
+
+	//Function := "[UpdateOneUpload]"
+
+	//var line int
+
+	qParts := make([]string, 0)
+	args := make([]interface{}, 0)
+	var allqpart string
+
+	query := "UPDATE `projet_uploader`.`info_gene` SET "
+
+	if Body.Name != "" {
+		qParts = append(qParts, "`name` = ?")
+		args = append(args, Body.Name)
+	}
+	if Body.Description != "" {
+		qParts = append(qParts, "`description` = ?")
+		args = append(args, Body.Description)
+	}
+
+	fin := " WHERE `id` = ?;"
+	args = append(args, id)
+
+	if len(qParts) == 0 || len(args) == 0 {
+		err := errors.New("Bad Format Body")
+		return err
+	}
+
+	allqpart += strings.Join(qParts, ",")
+	query = query + allqpart + fin
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(args...)
+	if err != nil {
 		return err
 	}
 

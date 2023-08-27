@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 	common "uploader/common"
+	"uploader/config"
 	logger "uploader/logger"
 	video "uploader/video"
 
@@ -23,8 +24,12 @@ func main() {
 	Function := "[main]"
 	var line int
 
+	// mise en place des fichiers de log
 	logger.Init()
 	lognew, _ := logger.LogSwitch("main.log")
+
+	//mise en place config
+	config.Init(lognew)
 
 	line = common.GetLine()
 	lognew.WithFields(log.Fields{
@@ -37,8 +42,8 @@ func main() {
 	//r.HandleFunc("/create_login", GetAllData).Methods("POST")
 	//r.HandleFunc("/login", GetAllData).Methods("POST")
 	r.HandleFunc("/video", video.GetAllData).Methods("GET")
-	r.HandleFunc("/video/{id}", video.GetOneData).Methods("GET")
-	//r.HandleFunc("/video/{id}", GetOneData).Methods("PUT")
+	r.HandleFunc("/video/{id}", video.OperationOneData).Methods("GET")
+	r.HandleFunc("/video/{id}", video.OperationOneData).Methods("PUT")
 	r.HandleFunc("/video/{id}/file", video.GetVideoOneData).Methods("GET")
 	r.HandleFunc("/upload_video", video.UploadVideo).Methods("POST")
 

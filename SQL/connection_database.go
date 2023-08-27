@@ -7,14 +7,15 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func ConnProjectUploader(logSQL *log.Logger) (*sql.DB, error) {
 
-	dbuser := "tom"
-	dbpassword := "tom"
-	dburl := "localhost"
-	dbname := "projet_uploader"
+	dbuser := viper.GetString("project_uploader.dbuser")
+	dbpassword := viper.GetString("project_uploader.dbpassword")
+	dburl := viper.GetString("project_uploader.dburl")
+	dbname := viper.GetString("project_uploader.dbname")
 
 	Function := "[ConnProjectUploader]"
 	var line int
@@ -40,6 +41,7 @@ func ConnProjectUploader(logSQL *log.Logger) (*sql.DB, error) {
 		return nil, err
 	}
 
+	line = common.GetLine()
 	logSQL.WithFields(log.Fields{
 		"Function": Function,
 		"comment":  "L" + strconv.Itoa(line) + " - Database connection done",
