@@ -10,15 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func OperationAllData(w http.ResponseWriter, r *http.Request) {
+func OperationAllVideo(w http.ResponseWriter, r *http.Request) {
 
-	Function := "[OperationAllData]"
+	Function := "[OperationAllVideo]"
 	var line int
 
 	//-----------------------------Init Controler-----------------------------------
 
 	var Controler ControlerStruct
-	err := Controler.ControlLogAndDB(w, "OperationAllData")
+	err := Controler.ControlLogAndDB(w, "OperationAllVideo")
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -37,12 +37,12 @@ func OperationAllData(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------- GET All video ---------------------------------
 
-		mapVideo, err := SQL.GetVideo(Controler.LogControl, Controler.DB)
+		mapVideo, err := SQL.SELECTAllVideo(Controler.LogControl, Controler.DB)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error Get Video",
+				"comment":  "L" + strconv.Itoa(line) + " - Error SQL.SELECTAllVideo",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -71,12 +71,12 @@ func OperationAllData(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------- GET All video ---------------------------------
 
-		mapVideo, err := SQL.GetVideo(Controler.LogControl, Controler.DB)
+		mapVideo, err := SQL.SELECTAllVideo(Controler.LogControl, Controler.DB)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error Get Video",
+				"comment":  "L" + strconv.Itoa(line) + " - Error SQL.SELECTAllVideo",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -119,13 +119,13 @@ func OperationAllData(w http.ResponseWriter, r *http.Request) {
 		//--------------------------------------------------------------------------
 
 		//-----------------------------DELETE All Object--------------------------------
-		err = SQL.DeleteAllUpload(Controler.LogControl, Controler.DB)
+		err = SQL.DELETEAllUpload(Controler.LogControl, Controler.DB)
 		if err != nil {
 
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.DeleteOneVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.DELETEAllUpload",
 				"error":    err,
 			}).Error()
 

@@ -10,9 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GetVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.Upload, error) {
+func SELECTAllVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.VideoGene, error) {
 
-	Function := "[GetVideo]"
+	Function := "[SELECTAllVideo]"
 	var line int
 
 	var Id int
@@ -22,11 +22,12 @@ func GetVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.Upload, error) {
 	var Video_id sql.NullString
 	var File_name sql.NullString
 	var Path sql.NullString
+	var Size sql.NullInt64
 
-	MapVideo := make(map[int]common.Upload)
+	MapVideo := make(map[int]common.VideoGene)
 
-	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path` FROM `projet_uploader`.info_gene" +
-		" INNER JOIN `video` ON `object_video` = `video`.`video_id`;"
+	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path`,`size` FROM `project_uploader`.video_gene" +
+		" INNER JOIN `video_detail` ON `object_video` = `video_detail`.`video_id`;"
 
 	results, err := db.Query(query)
 	if err != nil {
@@ -40,7 +41,7 @@ func GetVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.Upload, error) {
 	}
 
 	for results.Next() {
-		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path)
+		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path, &Size)
 		if err != nil {
 			line = common.GetLine() - 1
 			logSQL.WithFields(log.Fields{
@@ -51,28 +52,29 @@ func GetVideo(logSQL *log.Logger, db *sql.DB) (map[int]common.Upload, error) {
 			return nil, err
 		}
 
-		OneVideo := common.Video{
+		OneVideoDetail := common.VideoDetail{
 			Video_id:  Video_id.String,
 			File_name: File_name.String,
 			Path:      Path.String,
+			Size:      Size.Int64,
 		}
-		OneUpload := common.Upload{
+		OneVideoGene := common.VideoGene{
 			Id:           Id,
 			Name:         Name.String,
 			Description:  Description.String,
 			Date:         Date.String,
-			Object_video: OneVideo,
+			Object_video: OneVideoDetail,
 		}
 
-		MapVideo[Id] = OneUpload
+		MapVideo[Id] = OneVideoGene
 	}
 
 	return MapVideo, nil
 }
 
-func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload, error) {
+func SELECTOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.VideoGene, error) {
 
-	Function := "[GetOneVideo]"
+	Function := "[SELECTOneVideo]"
 	var line int
 
 	var Id int
@@ -82,11 +84,12 @@ func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload,
 	var Video_id sql.NullString
 	var File_name sql.NullString
 	var Path sql.NullString
+	var Size sql.NullInt64
 
-	MapVideo := make(map[int]common.Upload)
+	MapVideo := make(map[int]common.VideoGene)
 
-	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path` FROM `projet_uploader`.info_gene" +
-		" INNER JOIN `video` ON `object_video` = `video`.`video_id`" +
+	query := "SELECT `id`,`name`,`description`,`date`,`video_id`,`file_name`,`path`,`size` FROM `project_uploader`.video_gene" +
+		" INNER JOIN `video_detail` ON `object_video` = `video_detail`.`video_id`" +
 		" WHERE `id` = ?;"
 
 	results, err := db.Query(query, id)
@@ -101,7 +104,7 @@ func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload,
 	}
 
 	for results.Next() {
-		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path)
+		err = results.Scan(&Id, &Name, &Description, &Date, &Video_id, &File_name, &Path, &Size)
 		if err != nil {
 			line = common.GetLine() - 1
 			logSQL.WithFields(log.Fields{
@@ -112,28 +115,70 @@ func GetOneVideo(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Upload,
 			return nil, err
 		}
 
-		OneVideo := common.Video{
+		OneVideoDetail := common.VideoDetail{
 			Video_id:  Video_id.String,
 			File_name: File_name.String,
 			Path:      Path.String,
+			Size:      Size.Int64,
 		}
-		OneUpload := common.Upload{
+		OneVideoGene := common.VideoGene{
 			Id:           Id,
 			Name:         Name.String,
 			Description:  Description.String,
 			Date:         Date.String,
-			Object_video: OneVideo,
+			Object_video: OneVideoDetail,
 		}
 
-		MapVideo[Id] = OneUpload
+		MapVideo[Id] = OneVideoGene
 	}
 
 	return MapVideo, nil
 }
 
-func GetAllVideoID(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
+func SELECTAllId(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
 
-	Function := "[GetAllVideoID]"
+	Function := "[SELECTAllId]"
+
+	var line int
+
+	var id sql.NullInt64
+
+	MapVideoID := make(map[int]string)
+
+	query := "SELECT DISTINCT(id) FROM `project_uploader`.video_gene;"
+
+	results, err := db.Query(query)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Query SELECT",
+			"error":    err,
+		}).Error()
+		return nil, err
+	}
+
+	for results.Next() {
+		err = results.Scan(&id)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on Query SCAN",
+				"error":    err,
+			}).Error()
+			return nil, err
+		}
+
+		MapVideoID[int(id.Int64)] = "id"
+	}
+
+	return MapVideoID, nil
+}
+
+func SELECTAllVideoID(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
+
+	Function := "[SELECTAllVideoID]"
 
 	var line int
 
@@ -141,7 +186,7 @@ func GetAllVideoID(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
 
 	MapVideoID := make(map[int]string)
 
-	query := "SELECT DISTINCT(object_video) FROM `projet_uploader`.info_gene;"
+	query := "SELECT DISTINCT(object_video) FROM `project_uploader`.video_gene;"
 
 	results, err := db.Query(query)
 	if err != nil {
@@ -185,14 +230,14 @@ func GetAllVideoID(logSQL *log.Logger, db *sql.DB) (map[int]string, error) {
 	return MapVideoID, nil
 }
 
-func PostVideo(logSQL *log.Logger, db *sql.DB, Video common.Upload) error {
+func INSERTNewVideo(logSQL *log.Logger, db *sql.DB, Video common.VideoGene) error {
 
-	Function := "[GetData]"
+	Function := "[INSERTNewVideo]"
 
 	var line int
 
-	query1 := "INSERT INTO `projet_uploader`.info_gene (`name`,`description`,`date`, `object_video`) VALUE (?,?,NOW(),?);"
-	query2 := "INSERT INTO `projet_uploader`.video (`video_id`,`file_name`,`path`) VALUE (?,?,?);"
+	query1 := "INSERT INTO `project_uploader`.video_gene (`id`,`name`,`description`,`date`, `object_video`) VALUE (?,?,?,NOW(),?);"
+	query2 := "INSERT INTO `project_uploader`.video_detail (`video_id`,`file_name`,`path`,`size`) VALUE (?,?,?,?);"
 
 	stmt, err := db.Prepare(query1)
 	if err != nil {
@@ -206,7 +251,7 @@ func PostVideo(logSQL *log.Logger, db *sql.DB, Video common.Upload) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(Video.Name, Video.Description, Video.Object_video.Video_id)
+	_, err = stmt.Exec(Video.Id, Video.Name, Video.Description, Video.Object_video.Video_id)
 	if err != nil {
 		line = common.GetLine() - 1
 		logSQL.WithFields(log.Fields{
@@ -229,7 +274,7 @@ func PostVideo(logSQL *log.Logger, db *sql.DB, Video common.Upload) error {
 	}
 	defer stmt2.Close()
 
-	_, err = stmt2.Exec(Video.Object_video.Video_id, Video.Object_video.File_name, Video.Object_video.Path)
+	_, err = stmt2.Exec(Video.Object_video.Video_id, Video.Object_video.File_name, Video.Object_video.Path, Video.Object_video.Size)
 	if err != nil {
 		line = common.GetLine() - 1
 		logSQL.WithFields(log.Fields{
@@ -243,9 +288,9 @@ func PostVideo(logSQL *log.Logger, db *sql.DB, Video common.Upload) error {
 	return nil
 }
 
-func UpdateOneUpload(logSQL *log.Logger, db *sql.DB, Body common.Upload, id int) error {
+func UPDATEOneVideo(logSQL *log.Logger, db *sql.DB, Body common.VideoGene, id int) error {
 
-	Function := "[UpdateOneUpload]"
+	Function := "[UPDATEOneVideo]"
 
 	var line int
 
@@ -253,7 +298,7 @@ func UpdateOneUpload(logSQL *log.Logger, db *sql.DB, Body common.Upload, id int)
 	args := make([]interface{}, 0)
 	var allqpart string
 
-	query := "UPDATE `projet_uploader`.`info_gene` SET "
+	query := "UPDATE `project_uploader`.`video_gene` SET "
 
 	if Body.Name != "" {
 		qParts = append(qParts, "`name` = ?")
@@ -301,14 +346,14 @@ func UpdateOneUpload(logSQL *log.Logger, db *sql.DB, Body common.Upload, id int)
 	return nil
 }
 
-func DeleteOneUpload(logSQL *log.Logger, db *sql.DB, upload common.Upload) error {
+func DELETEOneUpload(logSQL *log.Logger, db *sql.DB, upload common.VideoGene) error {
 
-	Function := "[DeleteOneUpload]"
+	Function := "[DELETEOneUpload]"
 
 	var line int
 
-	query1 := "DELETE FROM `projet_uploader`.`video` WHERE  `video_id` = ?;"
-	query2 := "DELETE FROM `projet_uploader`.`info_gene` WHERE  `id` = ?;"
+	query1 := "DELETE FROM `project_uploader`.`video_detail` WHERE  `video_id` = ?;"
+	query2 := "DELETE FROM `project_uploader`.`video_gene` WHERE  `id` = ?;"
 
 	stmt1, err := db.Prepare(query1)
 	if err != nil {
@@ -359,14 +404,14 @@ func DeleteOneUpload(logSQL *log.Logger, db *sql.DB, upload common.Upload) error
 	return nil
 }
 
-func DeleteAllUpload(logSQL *log.Logger, db *sql.DB) error {
+func DELETEAllUpload(logSQL *log.Logger, db *sql.DB) error {
 
-	Function := "[DeleteAllUpload]"
+	Function := "[DELETEAllUpload]"
 
 	var line int
 
-	query1 := "DELETE FROM `projet_uploader`.`video`;"
-	query2 := "DELETE FROM `projet_uploader`.`info_gene`;"
+	query1 := "DELETE FROM `project_uploader`.`video_detail`;"
+	query2 := "DELETE FROM `project_uploader`.`video_gene`;"
 
 	stmt1, err := db.Prepare(query1)
 	if err != nil {

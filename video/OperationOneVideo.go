@@ -17,15 +17,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func OperationOneData(w http.ResponseWriter, r *http.Request) {
+func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 
-	Function := "[OperationOneData]"
+	Function := "[OperationOneVideo]"
 	var line int
 
 	//-----------------------------Init Controler-----------------------------------
 
 	var Controler ControlerStruct
-	err := Controler.ControlLogAndDB(w, "OperationOneData")
+	err := Controler.ControlLogAndDB(w, "OperationOneVideo")
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -65,7 +65,7 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 		//--------------------------------------------------------------------------
 
 		//-------------------------- GET One video ---------------------------------
-		mapVideo, err := SQL.GetOneVideo(Controler.LogControl, Controler.DB, id)
+		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
@@ -98,7 +98,7 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		//--------------------------------Recup Body----------------------------------
 
-		var Body common.Upload
+		var Body common.VideoGene
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
@@ -172,13 +172,13 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------------Update Data-------------------------------
 
-		err = SQL.UpdateOneUpload(Controler.LogControl, Controler.DB, Body, id)
+		err = SQL.UPDATEOneVideo(Controler.LogControl, Controler.DB, Body, id)
 		if err != nil {
 
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.UpdateOneUpload",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.UPDATEOneVideo",
 				"error":    err,
 			}).Error()
 
@@ -231,7 +231,7 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 
 		//------------------------------GET Object Video---------------------------
 
-		mapVideo, err := SQL.GetOneVideo(Controler.LogControl, Controler.DB, id)
+		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
@@ -287,13 +287,13 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 		//--------------------------------------------------------------------------
 
 		//-----------------------------DELETE Object--------------------------------
-		err = SQL.DeleteOneUpload(Controler.LogControl, Controler.DB, mapVideo[id])
+		err = SQL.DELETEOneUpload(Controler.LogControl, Controler.DB, mapVideo[id])
 		if err != nil {
 
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.DeleteOneVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.DELETEOneUpload",
 				"error":    err,
 			}).Error()
 
@@ -324,15 +324,15 @@ func OperationOneData(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func GetVideoOneData(w http.ResponseWriter, r *http.Request) {
+func GetOneVideoFile(w http.ResponseWriter, r *http.Request) {
 
-	Function := "[GetVideoOneData]"
+	Function := "[GetOneVideoFile]"
 	var line int
 
 	//-----------------------------Init Controler-----------------------------------
 
 	var Controler ControlerStruct
-	err := Controler.ControlLogAndDB(w, "GetVideoOneData")
+	err := Controler.ControlLogAndDB(w, "GetOneVideoFile")
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -373,7 +373,7 @@ func GetVideoOneData(w http.ResponseWriter, r *http.Request) {
 		//-------------------------------Recup varURL----------------------------------
 
 		//-------------------------- GET One video ---------------------------------
-		mapVideo, err := SQL.GetOneVideo(Controler.LogControl, Controler.DB, id)
+		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{

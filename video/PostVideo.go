@@ -125,13 +125,43 @@ func UploadVideo(w http.ResponseWriter, r *http.Request) {
 
 		//--------------------------------------------------------------------------
 
-		//-----------------------------Create IdVideo-------------------------------
-		MapVideoID, err := SQL.GetAllVideoID(Controler.LogControl, Controler.DB)
+		//-------------------------------Create Id----------------------------------
+		MapId, err := SQL.SELECTAllId(Controler.LogControl, Controler.DB)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.GetAllVideoID",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTAllId",
+				"error":    err,
+			}).Error()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var id int
+		for i := 1; i < len(MapId)+2; i++ {
+
+			if _, ok := MapId[i]; !ok {
+				id = i
+				break
+			}
+		}
+
+		line = common.GetLine()
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - New Id Upload :" + strconv.Itoa(id),
+		}).Info()
+
+		//--------------------------------------------------------------------------
+
+		//-----------------------------Create IdVideo-------------------------------
+		MapVideoID, err := SQL.SELECTAllVideoID(Controler.LogControl, Controler.DB)
+		if err != nil {
+			line = common.GetLine() - 1
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTAllVideoID",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -158,24 +188,26 @@ func UploadVideo(w http.ResponseWriter, r *http.Request) {
 		//-------------------------Insert Video On DataBase-------------------------
 		folders := make([]string, 0)
 		folders = append(folders, "file")
-		OneVideo := common.Video{
+		OneVideo := common.VideoDetail{
 			Video_id:  Video_id,
 			File_name: handler.Filename,
 			Path:      common.FindProjectPath() + common.CreatePath(folders) + handler.Filename, // à changer pour s'adapter à env linux
+			Size:      handler.Size,
 		}
 
-		OneUpload := common.Upload{
+		OneUpload := common.VideoGene{
+			Id:           id,
 			Name:         name,
 			Description:  description,
 			Object_video: OneVideo,
 		}
 
-		err = SQL.PostVideo(Controler.LogControl, Controler.DB, OneUpload)
+		err = SQL.INSERTNewVideo(Controler.LogControl, Controler.DB, OneUpload)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.PostVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.INSERTNewVideo",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)

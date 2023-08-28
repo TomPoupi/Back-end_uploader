@@ -1,5 +1,5 @@
 project_uploader :
-  dbname : "projet_uploader"
+  dbname : "project_uploader"
   dburl : "localhost"
   dbuser : "tom"
   dbpassword : "tom"

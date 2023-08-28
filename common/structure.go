@@ -1,17 +1,18 @@
 package common
 
-type Upload struct {
+type VideoGene struct {
 	Id           int
 	Name         string
 	Description  string
 	Date         string
-	Object_video Video
+	Object_video VideoDetail
 }
 
-type Video struct {
+type VideoDetail struct {
 	Video_id  string
 	File_name string
 	Path      string
+	Size      int64
 }
 
 // type News struct {
