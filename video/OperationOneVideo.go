@@ -12,6 +12,7 @@ import (
 	"time"
 	"uploader/SQL"
 	"uploader/common"
+	Ctrl "uploader/controler"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
@@ -24,7 +25,7 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 
 	//-----------------------------Init Controler-----------------------------------
 
-	var Controler ControlerStruct
+	var Controler Ctrl.ControlerStruct
 	err := Controler.ControlLogAndDB(w, "OperationOneVideo")
 	if err != nil {
 		line = common.GetLine() - 1
@@ -331,7 +332,7 @@ func GetOneVideoFile(w http.ResponseWriter, r *http.Request) {
 
 	//-----------------------------Init Controler-----------------------------------
 
-	var Controler ControlerStruct
+	var Controler Ctrl.ControlerStruct
 	err := Controler.ControlLogAndDB(w, "GetOneVideoFile")
 	if err != nil {
 		line = common.GetLine() - 1

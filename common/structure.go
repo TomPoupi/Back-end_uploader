@@ -15,6 +15,12 @@ type VideoDetail struct {
 	Size      int64
 }
 
+type Users struct {
+	Id       int
+	Username string
+	Password string
+}
+
 // type News struct {
 // 	Headline string
 // 	Body     string

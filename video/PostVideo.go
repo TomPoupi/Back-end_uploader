@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"uploader/SQL"
 	"uploader/common"
+	Ctrl "uploader/controler"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -23,7 +24,7 @@ func UploadVideo(w http.ResponseWriter, r *http.Request) {
 
 	//-----------------------------Init Controler-----------------------------------
 
-	var Controler ControlerStruct
+	var Controler Ctrl.ControlerStruct
 	err := Controler.ControlLogAndDB(w, "UploadVideo")
 	if err != nil {
 		line = common.GetLine() - 1
