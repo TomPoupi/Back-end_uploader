@@ -402,6 +402,9 @@ func GetOneVideoFile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.ServeContent(w, r, baseName, time.Unix(0, 0), file)
+		//w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filename))
+		//w.Header().Set("Content-Type", "application/octet-stream")
+		//http.ServeFile() pour download
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
