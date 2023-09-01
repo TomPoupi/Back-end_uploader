@@ -18,11 +18,6 @@ import (
 
 var JwtKey = []byte("my_secret_key")
 
-type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 type Claims struct {
 	Username string `json:"username"`
 	Id       int
@@ -50,7 +45,7 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	//------------------------------------------------------------------------------
 
 	//-------------------------------Decode Body------------------------------------
-	var creds Credentials
+	var creds common.Users
 	err = json.NewDecoder(r.Body).Decode(&creds)
 	if err != nil {
 		line = common.GetLine() - 1
@@ -67,7 +62,7 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	//-------------------------------Verif User-------------------------------------
 
 	// Recup all user
-	MapUsers, err := SQL.SELECTAllUser(Controler.LogControl, Controler.DB)
+	MapUsers, err := SQL.SELECTAllUserByUsername(Controler.LogControl, Controler.DB)
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -136,6 +131,18 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Value", tokenString)
 	w.Header().Set("Expires", expirationTime.String())
 	//------------------------------------------------------------------------------
+
+	//-------------------------- Body Response -------------------------------------
+
+	common.JSONresponse(Controler.LogControl, w, 200, "You're now authentifacated, Welcome User :"+claims.Username)
+
+	line = common.GetLine()
+	Controler.LogControl.WithFields(log.Fields{
+		"Function": Function,
+		"comment":  "L" + strconv.Itoa(line) + " - Singin Done",
+	}).Info()
+
+	//----------------------------------------------------------------------------
 }
 
 func Refresh(w http.ResponseWriter, r *http.Request) {
@@ -176,15 +183,19 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 
 	//---------------------vérfication de la validité du token----------------------
 
-	strArr := strings.Split(bearToken, " ")
-	tknStr := strArr[1]
-	claims := &Claims{}
-	tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return JwtKey, nil
-	})
-
+	claims, err := VerifyValideTkn(Controler.LogControl, bearToken)
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
+			line = common.GetLine() - 1
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+				"error":    err,
+			}).Error()
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if err.Error() == "Invalide Token" {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
@@ -201,16 +212,6 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 			"error":    err,
 		}).Error()
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if !tkn.Valid {
-		line = common.GetLine() - 1
-		Controler.LogControl.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
-			"error":    err,
-		}).Error()
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -251,6 +252,18 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Value", tokenString)
 	w.Header().Set("Expires", expirationTime.String())
 	//------------------------------------------------------------------------------
+
+	//-------------------------- Body Response -------------------------------------
+
+	common.JSONresponse(Controler.LogControl, w, 200, "You're token is refreshed, Welcome Back User :"+claims.Username)
+
+	line = common.GetLine()
+	Controler.LogControl.WithFields(log.Fields{
+		"Function": Function,
+		"comment":  "L" + strconv.Itoa(line) + " - Refresh Done",
+	}).Info()
+
+	//----------------------------------------------------------------------------
 }
 
 // func Logout(w http.ResponseWriter, r *http.Request) {
@@ -260,3 +273,141 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 // 		Expires: time.Now(),
 // 	})
 // }
+
+func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*Claims, error) {
+
+	Function := "[VerifyValideTkn]"
+	var line int
+
+	strArr := strings.Split(bearerToken, " ")
+	tknStr := strArr[1]
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return JwtKey, nil
+	})
+
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			line = common.GetLine() - 1
+			logOne.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+				"error":    err,
+			}).Error()
+			return nil, err
+		}
+		line = common.GetLine() - 1
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+			"error":    err,
+		}).Error()
+		return nil, err
+	}
+	if !tkn.Valid {
+		line = common.GetLine() - 1
+		err = errors.New("Invalide Token")
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+			"error":    err,
+		}).Error()
+		return nil, err
+	}
+	return claims, nil
+}
+
+func CreateLogin(w http.ResponseWriter, r *http.Request) {
+
+	Function := "[Signin]"
+	var line int
+
+	//-----------------------------Init Controler-----------------------------------
+	var Controler Ctrl.ControlerStruct
+	err := Controler.ControlLogAndDB(w, "Signin")
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Init Controller",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//------------------------------------------------------------------------------
+
+	//-------------------------------Decode Body------------------------------------
+	var creds common.Users
+	err = json.NewDecoder(r.Body).Decode(&creds)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Init Controller",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	//------------------------------------------------------------------------------
+
+	//-------------------------------Create Id----------------------------------
+	MapId, err := SQL.SELECTAllIdUsers(Controler.LogControl, Controler.DB)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTAllId",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var id int
+	for i := 1; i < len(MapId)+2; i++ {
+
+		if _, ok := MapId[i]; !ok {
+			id = i
+			break
+		}
+	}
+
+	line = common.GetLine()
+	Controler.LogControl.WithFields(log.Fields{
+		"Function": Function,
+		"comment":  "L" + strconv.Itoa(line) + " - New Id Upload :" + strconv.Itoa(id),
+	}).Info()
+	//--------------------------------------------------------------------------
+
+	//-------------------------Insert Users On DataBase-------------------------
+
+	creds.Id = id
+	creds.Level = 10
+	err = SQL.INSERTNewUser(Controler.LogControl, Controler.DB, creds)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.INSERTNewUser",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//--------------------------------------------------------------------------
+
+	//-------------------------- Body Response ---------------------------------
+
+	common.JSONresponse(Controler.LogControl, w, 200, "Insert New User Done")
+
+	line = common.GetLine()
+	Controler.LogControl.WithFields(log.Fields{
+		"Function": Function,
+		"comment":  "L" + strconv.Itoa(line) + " - CreateLogin Done",
+	}).Info()
+
+	//------------------------------------------------------------------------
+
+}

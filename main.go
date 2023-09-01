@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 	common "uploader/common"
 	"uploader/config"
@@ -47,9 +46,16 @@ func main() {
 
 	r := mux.NewRouter()
 	r.Handle("/", authMiddlerware(http.HandlerFunc(Home), OpenAccess)).Methods("GET")
-	// r.HandleFunc("/create_login", GetAllData).Methods("POST")
+
 	r.Handle("/login", authMiddlerware(http.HandlerFunc(login.Signin), OpenAccess)).Methods("POST")
 	r.Handle("/refreshToken", authMiddlerware(http.HandlerFunc(login.Refresh), OpenAccess)).Methods("POST")
+
+	r.Handle("/create_user", authMiddlerware(http.HandlerFunc(login.CreateLogin), RestrictedAccess)).Methods("POST")
+	r.Handle("/user", authMiddlerware(http.HandlerFunc(login.OperationAllUsers), RestrictedAccess)).Methods("GET")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("GET")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("PUT")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("DELETE")
+
 	r.Handle("/video", authMiddlerware(http.HandlerFunc(video.OperationAllVideo), OpenAccess)).Methods("GET")
 	r.Handle("/video", authMiddlerware(http.HandlerFunc(video.OperationAllVideo), RestrictedAccess)).Methods("DELETE")
 	r.Handle("/video/{id}", authMiddlerware(http.HandlerFunc(video.OperationOneVideo), OpenAccess)).Methods("GET")
@@ -57,17 +63,6 @@ func main() {
 	r.Handle("/video/{id}", authMiddlerware(http.HandlerFunc(video.OperationOneVideo), RestrictedAccess)).Methods("DELETE")
 	r.Handle("/video/{id}/file", authMiddlerware(http.HandlerFunc(video.GetOneVideoFile), OpenAccess)).Methods("GET")
 	r.Handle("/upload_video", authMiddlerware(http.HandlerFunc(video.UploadVideo), RestrictedAccess)).Methods("POST")
-
-	// r.HandleFunc("/create_login", GetAllData).Methods("POST")
-	// r.HandleFunc("/login", login.Signin).Methods("POST")
-	// r.HandleFunc("/refreshToken", login.Refresh).Methods("POST")
-	// r.HandleFunc("/video", video.OperationAllVideo).Methods("GET")
-	// r.HandleFunc("/video", video.OperationAllVideo).Methods("DELETE")
-	// r.HandleFunc("/video/{id}", video.OperationOneVideo).Methods("GET")
-	// r.HandleFunc("/video/{id}", video.OperationOneVideo).Methods("PUT")
-	// r.HandleFunc("/video/{id}", video.OperationOneVideo).Methods("DELETE")
-	// r.HandleFunc("/video/{id}/file", video.GetOneVideoFile).Methods("GET")
-	// r.HandleFunc("/upload_video", video.UploadVideo).Methods("POST")
 
 	srv := &http.Server{
 		Handler:      r,
@@ -151,15 +146,19 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 			//------------------------------------------------------------------------------
 
 			//---------------------vérfication de la validité du token----------------------
-			strArr := strings.Split(bearToken, " ")
-			tknStr := strArr[1]
-			claims := &login.Claims{}
-			tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
-				return login.JwtKey, nil
-			})
-
+			claims, err := login.VerifyValideTkn(Controler.LogControl, bearToken)
 			if err != nil {
 				if err == jwt.ErrSignatureInvalid {
+					line = common.GetLine() - 1
+					Controler.LogControl.WithFields(log.Fields{
+						"Function": Function,
+						"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+						"error":    err,
+					}).Error()
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return
+				}
+				if err.Error() == "Invalide Token" {
 					line = common.GetLine() - 1
 					Controler.LogControl.WithFields(log.Fields{
 						"Function": Function,
@@ -176,16 +175,6 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 					"error":    err,
 				}).Error()
 				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if !tkn.Valid {
-				line = common.GetLine() - 1
-				Controler.LogControl.WithFields(log.Fields{
-					"Function": Function,
-					"comment":  "L" + strconv.Itoa(line) + " - Error token user",
-					"error":    err,
-				}).Error()
-				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 

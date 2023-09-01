@@ -17,8 +17,9 @@ type VideoDetail struct {
 
 type Users struct {
 	Id       int
-	Username string
-	Password string
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Level    int    `json:"level"`
 }
 
 // type News struct {

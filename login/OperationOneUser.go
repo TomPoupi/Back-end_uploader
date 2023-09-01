@@ -1,32 +1,29 @@
-package video
+package login
 
 import (
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"os"
-	"path"
 	"reflect"
 	"strconv"
-	"time"
 	"uploader/SQL"
-	"uploader/common"
+	common "uploader/common"
 	Ctrl "uploader/controler"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
-func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
+func OperationOneUser(w http.ResponseWriter, r *http.Request) {
 
-	Function := "[OperationOneVideo]"
+	Function := "[OperationOneUser]"
 	var line int
 
 	//-----------------------------Init Controler-----------------------------------
 
 	var Controler Ctrl.ControlerStruct
-	err := Controler.ControlLogAndDB(w, "OperationOneVideo")
+	err := Controler.ControlLogAndDB(w, "OperationOneUser")
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -60,18 +57,18 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Get One video with id : " + mux.Vars(r)["id"],
+			"comment":  "L" + strconv.Itoa(line) + " - Get One User with id : " + mux.Vars(r)["id"],
 		}).Info()
 
 		//--------------------------------------------------------------------------
 
 		//-------------------------- GET One video ---------------------------------
-		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
+		mapUsers, err := SQL.SELECTOneUser(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTOneVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTOneUser",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -81,12 +78,12 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------- Body Response ---------------------------------
 
-		common.JSONresponse(Controler.LogControl, w, 200, mapVideo)
+		common.JSONresponse(Controler.LogControl, w, 200, mapUsers)
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - OperationOneVideo GET Done",
+			"comment":  "L" + strconv.Itoa(line) + " - OperationOneUser GET Done",
 		}).Info()
 
 		return
@@ -99,7 +96,7 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		//--------------------------------Recup Body----------------------------------
 
-		var Body common.VideoGene
+		var Body common.Users
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
@@ -166,20 +163,20 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Get One Data with id : " + mux.Vars(r)["id"],
+			"comment":  "L" + strconv.Itoa(line) + " - Get One User with id : " + mux.Vars(r)["id"],
 		}).Info()
 
 		//--------------------------------------------------------------------------
 
 		//-------------------------------Update Data-------------------------------
 
-		err = SQL.UPDATEOneVideo(Controler.LogControl, Controler.DB, Body, id)
+		err = SQL.UPDATEOneUser(Controler.LogControl, Controler.DB, Body, id)
 		if err != nil {
 
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.UPDATEOneVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.UPDATEOneUser",
 				"error":    err,
 			}).Error()
 
@@ -194,12 +191,12 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------- Body Response ---------------------------------
 
-		common.JSONresponse(Controler.LogControl, w, 200, "Update Done")
+		common.JSONresponse(Controler.LogControl, w, 200, "Update User Done")
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - OperationOneData PUT Done",
+			"comment":  "L" + strconv.Itoa(line) + " - OperationOneUser PUT Done",
 		}).Info()
 		//--------------------------------------------------------------------------
 	}
@@ -225,19 +222,19 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Get One Data with id : " + mux.Vars(r)["id"],
+			"comment":  "L" + strconv.Itoa(line) + " - Get One User with id : " + mux.Vars(r)["id"],
 		}).Info()
 
 		//--------------------------------------------------------------------------
 
-		//------------------------------GET Object Video---------------------------
+		//------------------------------GET Object User-----------------------------
 
-		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
+		mapUsers, err := SQL.SELECTOneUser(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on GetOneVideo",
+				"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTOneUser",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -245,13 +242,28 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// check if exist
-		if len(mapVideo) == 0 {
+		if len(mapUsers) == 0 {
 
-			err = errors.New("Video do not exist")
+			err = errors.New("User do not exist")
 			line = common.GetLine() - 1
 			Controler.LogControl.WithFields(log.Fields{
 				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Video do not exist",
+				"comment":  "L" + strconv.Itoa(line) + " - User do not exist",
+				"error":    err,
+			}).Error()
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+
+		}
+
+		// check if not admin
+		if mapUsers[id].Username == "admin" {
+
+			err = errors.New("Cannot delete User : admin")
+			line = common.GetLine() - 1
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Wrong delete User",
 				"error":    err,
 			}).Error()
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -261,34 +273,8 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 
 		//--------------------------------------------------------------------------
 
-		//------------------------------DELETE File---------------------------------
-
-		// check if exist
-		if _, err := os.Stat(mapVideo[id].Object_video.Path); err == nil {
-			// remove it
-			err = os.Remove(mapVideo[id].Object_video.Path)
-			if err != nil {
-				line = common.GetLine() - 1
-				Controler.LogControl.WithFields(log.Fields{
-					"Function": Function,
-					"comment":  "L" + strconv.Itoa(line) + " - Error on Remove file",
-					"error":    err,
-				}).Error()
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		line = common.GetLine()
-		Controler.LogControl.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Delete File Done",
-		}).Info()
-
-		//--------------------------------------------------------------------------
-
-		//-----------------------------DELETE Object--------------------------------
-		err = SQL.DELETEOneUpload(Controler.LogControl, Controler.DB, mapVideo[id])
+		//-----------------------------DELETE Object User---------------------------
+		err = SQL.DELETEOneUser(Controler.LogControl, Controler.DB, mapUsers[id])
 		if err != nil {
 
 			line = common.GetLine() - 1
@@ -305,7 +291,7 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Delete Object Done",
+			"comment":  "L" + strconv.Itoa(line) + " - Delete Object User Done",
 		}).Info()
 		//--------------------------------------------------------------------------
 
@@ -316,102 +302,10 @@ func OperationOneVideo(w http.ResponseWriter, r *http.Request) {
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - OperationOneData DELETE Done",
+			"comment":  "L" + strconv.Itoa(line) + " - OperationOneUser DELETE Done",
 		}).Info()
 		//--------------------------------------------------------------------------
 
-	}
-	//**************************************************************************
-
-}
-
-func GetOneVideoFile(w http.ResponseWriter, r *http.Request) {
-
-	Function := "[GetOneVideoFile]"
-	var line int
-
-	//-----------------------------Init Controler-----------------------------------
-
-	var Controler Ctrl.ControlerStruct
-	err := Controler.ControlLogAndDB(w, "GetOneVideoFile")
-	if err != nil {
-		line = common.GetLine() - 1
-		Controler.LogControl.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error Init Controller",
-			"error":    err,
-		}).Error()
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	//--------------------------------END Init---------------------------------------
-
-	//********************************* GET ************************************
-
-	if r.Method == "GET" {
-
-		//-------------------------------Recup varURL----------------------------------
-
-		id, err := strconv.Atoi(mux.Vars(r)["id"])
-		if err != nil {
-			line = common.GetLine() - 1
-			Controler.LogControl.WithFields(log.Fields{
-				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on Convert String to Int",
-				"error":    err,
-			}).Error()
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		line = common.GetLine()
-		Controler.LogControl.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Get One Data with id : " + mux.Vars(r)["id"],
-		}).Info()
-
-		//-------------------------------Recup varURL----------------------------------
-
-		//-------------------------- GET One video ---------------------------------
-		mapVideo, err := SQL.SELECTOneVideo(Controler.LogControl, Controler.DB, id)
-		if err != nil {
-			line = common.GetLine() - 1
-			Controler.LogControl.WithFields(log.Fields{
-				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on GetOneVideo",
-				"error":    err,
-			}).Error()
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		//--------------------------------------------------------------------------
-
-		//------------------ get Object Video and expose file ---------------------
-		baseName := path.Base(mapVideo[id].Object_video.Path)
-		file, err := os.Open(mapVideo[id].Object_video.Path)
-		if err != nil {
-			line = common.GetLine() - 1
-			Controler.LogControl.WithFields(log.Fields{
-				"Function": Function,
-				"comment":  "L" + strconv.Itoa(line) + " - Error on Open Video File",
-				"error":    err,
-			}).Error()
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		http.ServeContent(w, r, baseName, time.Unix(0, 0), file)
-		//w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filename))
-		//w.Header().Set("Content-Type", "application/octet-stream")
-		//http.ServeFile() pour download
-
-		line = common.GetLine()
-		Controler.LogControl.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Expose Video file Done",
-		}).Info()
-		//--------------------------------------------------------------------------
 	}
 	//**************************************************************************
 
