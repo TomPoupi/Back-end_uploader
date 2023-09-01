@@ -297,7 +297,7 @@ func OperationOneUser(w http.ResponseWriter, r *http.Request) {
 
 		//-------------------------- Body Response ---------------------------------
 
-		common.JSONresponse(Controler.LogControl, w, 200, "Delete Done")
+		common.JSONresponse(Controler.LogControl, w, 200, "Delete User Done")
 
 		line = common.GetLine()
 		Controler.LogControl.WithFields(log.Fields{

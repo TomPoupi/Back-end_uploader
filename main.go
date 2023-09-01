@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+	"uploader/SQL"
 	common "uploader/common"
 	"uploader/config"
 	Ctrl "uploader/controler"
@@ -77,9 +77,8 @@ func main() {
 
 func Home(w http.ResponseWriter, r *http.Request) {
 
-	//fonction := "[Home]"
 	w.WriteHeader(http.StatusTeapot)
-	w.Write([]byte(fmt.Sprintf("Hello %s !", r.Header.Get("User"))))
+	w.Write([]byte("Hello , Welcome in Backend uploader "))
 
 }
 
@@ -185,7 +184,20 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 			}).Info()
 			//------------------------------------------------------------------------------
 
-			if claims.Username != "admin" {
+			//---------------vérfication de niveau d'accès de l'utilisateur-----------------
+
+			MapUsers, err := SQL.SELECTOneUser(Controler.LogControl, Controler.DB, claims.Id)
+			if err != nil {
+				Controler.LogControl.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTOneUser",
+					"error":    err,
+				}).Error()
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			if MapUsers[claims.Id].Level < 100 {
 				err = errors.New(" User not enough privilege")
 				line = common.GetLine() - 1
 				Controler.LogControl.WithFields(log.Fields{
@@ -197,7 +209,21 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 				return
 			}
 
-			r.Header.Set("User", claims.Username)
+			// if claims.Username != "admin" {
+			// 	err = errors.New(" User not enough privilege")
+			// 	line = common.GetLine() - 1
+			// 	Controler.LogControl.WithFields(log.Fields{
+			// 		"Function": Function,
+			// 		"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+			// 		"error":    err,
+			// 	}).Error()
+			// 	http.Error(w, err.Error(), http.StatusUnauthorized)
+			// 	return
+			// }
+
+			//------------------------------------------------------------------------------
+
+			r.Header.Set("User", MapUsers[claims.Id].Username)
 			next.ServeHTTP(w, r)
 		}
 		//******************************************************************************
