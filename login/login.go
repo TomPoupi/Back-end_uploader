@@ -16,14 +16,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var JwtKey = []byte("my_secret_key")
-
-type Claims struct {
-	Username string `json:"username"`
-	Id       int
-	jwt.RegisteredClaims
-}
-
 func Signin(w http.ResponseWriter, r *http.Request) {
 
 	Function := "[Signin]"
@@ -90,18 +82,42 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	line = common.GetLine()
 	Controler.LogControl.WithFields(log.Fields{
 		"Function": Function,
-		"comment":  "L" + strconv.Itoa(line) + " - User  Authent !",
+		"comment":  "L" + strconv.Itoa(line) + " - User Authentificated !",
 		"User":     creds.Username,
 	}).Info()
 	//------------------------------------------------------------------------------
 
-	//-----------------------------Token Generation---------------------------------
+	//---------------------------Token Generation User------------------------------
+
+	// est-ce que user possède une clé secrete ?
+	if MapUsers[creds.Username].Key == "no_key" {
+		newKey := common.GenerateRandomString(20)
+		OneUser := common.Users{
+			Id:       MapUsers[creds.Username].Id,
+			Username: MapUsers[creds.Username].Username,
+			Password: MapUsers[creds.Username].Password,
+			Level:    MapUsers[creds.Username].Level,
+			Key:      newKey,
+		}
+		MapUsers[creds.Username] = OneUser
+		err = SQL.SecreteUPDATEOneUser(Controler.LogControl, Controler.DB, MapUsers[creds.Username], MapUsers[creds.Username].Id)
+		if err != nil {
+			line = common.GetLine() - 1
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on func SQL.SecreteUPDATEOneUser",
+				"error":    err,
+			}).Error()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 
 	// date d'expiration du token
 	expirationTime := time.Now().Add(5 * time.Minute)
 
 	// create claims => condition de validité du token
-	claims := &Claims{
+	claims := &common.Claims{
 		Username: creds.Username,
 		Id:       MapUsers[creds.Username].Id,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -113,7 +129,7 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// récup du token en string
-	tokenString, err := token.SignedString(JwtKey)
+	tokenString, err := token.SignedString([]byte(MapUsers[creds.Username].Key))
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -126,9 +142,53 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	}
 	//------------------------------------------------------------------------------
 
+	//---------------------------Generaiton Main Token------------------------------
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*Cryptage de Key*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	// tokenString, err = common.Encrypt(Controler.LogControl, tokenString)
+	// if err != nil {
+	// 	line = common.GetLine() - 1
+	// 	Controler.LogControl.WithFields(log.Fields{
+	// 		"Function": Function,
+	// 		"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt token",
+	// 		"error":    err,
+	// 	}).Error()
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	// create claims => condition de validité du token
+	claimsGene := &common.ClaimsGene{
+		TokenUser:  tokenString,
+		KeyCrypted: []byte(MapUsers[creds.Username].Key),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+
+	// création du token
+	tokenGene := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsGene)
+
+	// récup du token en string
+	tokenGeneString, err := tokenGene.SignedString(common.SecretKey)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Generate token",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//------------------------------------------------------------------------------
+
 	//-----------------------------Envoie du token----------------------------------
 	w.Header().Set("Name", "token")
-	w.Header().Set("Value", tokenString)
+	w.Header().Set("Value", tokenGeneString)
 	w.Header().Set("Expires", expirationTime.String())
 	//------------------------------------------------------------------------------
 
@@ -183,7 +243,7 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 
 	//---------------------vérfication de la validité du token----------------------
 
-	claims, err := VerifyValideTkn(Controler.LogControl, bearToken)
+	claimsGene, claims, err := VerifyValideTkn(Controler.LogControl, bearToken)
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
 			line = common.GetLine() - 1
@@ -215,25 +275,55 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	line = common.GetLine()
+	Controler.LogControl.WithFields(log.Fields{
+		"Function": Function,
+		"comment":  "L" + strconv.Itoa(line) + " - Token Valid !",
+	}).Info()
+
 	// check que le token n'a plus qu'1 minute de validité
+	if time.Until(claimsGene.ExpiresAt.Time) > 1*time.Minute {
+		err = errors.New("token still active , cannot be refreshed, Expires at : " + claimsGene.ExpiresAt.Time.String())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if time.Until(claims.ExpiresAt.Time) > 1*time.Minute {
-		w.WriteHeader(http.StatusBadRequest)
+		err = errors.New("token still active , cannot be refreshed, Expires at : " + claims.ExpiresAt.Time.String())
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	line = common.GetLine()
 	Controler.LogControl.WithFields(log.Fields{
 		"Function": Function,
-		"comment":  "L" + strconv.Itoa(line) + " - Token Valid !",
+		"comment":  "L" + strconv.Itoa(line) + " - Token can be refreshed !",
 	}).Info()
 	//------------------------------------------------------------------------------
 
-	//-----------------------------Token Generation---------------------------------
+	//-----------------------------User Token Generation---------------------------------
 	// re-création du token
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims.ExpiresAt = jwt.NewNumericDate(expirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(JwtKey)
+	tokenString, err := token.SignedString(claimsGene.KeyCrypted)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Generate token",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//------------------------------------------------------------------------------
+
+	//-----------------------------Main Token Generation---------------------------------
+	// re-création du token
+	claimsGene.TokenUser = tokenString
+	claimsGene.ExpiresAt = jwt.NewNumericDate(expirationTime)
+	tokenGene := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsGene)
+	tokenGeneString, err := tokenGene.SignedString(common.SecretKey)
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -249,7 +339,7 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 	//-----------------------------Envoie du token----------------------------------
 	// envoie du token
 	w.Header().Set("Name", "token")
-	w.Header().Set("Value", tokenString)
+	w.Header().Set("Value", tokenGeneString)
 	w.Header().Set("Expires", expirationTime.String())
 	//------------------------------------------------------------------------------
 
@@ -274,16 +364,18 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 // 	})
 // }
 
-func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*Claims, error) {
+func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*common.ClaimsGene, *common.Claims, error) {
 
 	Function := "[VerifyValideTkn]"
 	var line int
 
 	strArr := strings.Split(bearerToken, " ")
+
+	//Decode Main Token
 	tknStr := strArr[1]
-	claims := &Claims{}
-	tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return JwtKey, nil
+	claimsGene := &common.ClaimsGene{}
+	tkn, err := jwt.ParseWithClaims(tknStr, claimsGene, func(token *jwt.Token) (interface{}, error) {
+		return common.SecretKey, nil
 	})
 
 	if err != nil {
@@ -294,7 +386,7 @@ func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*Claims, error) {
 				"comment":  "L" + strconv.Itoa(line) + " - Error token user",
 				"error":    err,
 			}).Error()
-			return nil, err
+			return nil, nil, err
 		}
 		line = common.GetLine() - 1
 		logOne.WithFields(log.Fields{
@@ -302,7 +394,7 @@ func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*Claims, error) {
 			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
 			"error":    err,
 		}).Error()
-		return nil, err
+		return nil, nil, err
 	}
 	if !tkn.Valid {
 		line = common.GetLine() - 1
@@ -312,9 +404,63 @@ func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*Claims, error) {
 			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
 			"error":    err,
 		}).Error()
-		return nil, err
+		return nil, nil, err
 	}
-	return claims, nil
+
+	//Decode User Token
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*Decryptage de Key*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	// fmt.Println(string(claimsGene.KeyCrypted))
+	// decryptKey, err := common.Decrypt(logOne, string(claimsGene.KeyCrypted))
+	// if err != nil {
+	// 	line = common.GetLine() - 1
+	// 	logOne.WithFields(log.Fields{
+	// 		"Function": Function,
+	// 		"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt token",
+	// 		"error":    err,
+	// 	}).Error()
+	// 	return nil, nil, err
+	// }
+	// fmt.Println(string(decryptKey))
+	// claimsGene.KeyCrypted = []byte(decryptKey)
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	claims := &common.Claims{}
+	tokenUser, err := jwt.ParseWithClaims(claimsGene.TokenUser, claims, func(token *jwt.Token) (interface{}, error) {
+		return claimsGene.KeyCrypted, nil
+	})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			line = common.GetLine() - 1
+			logOne.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+				"error":    err,
+			}).Error()
+			return nil, nil, err
+		}
+		line = common.GetLine() - 1
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+			"error":    err,
+		}).Error()
+		return nil, nil, err
+	}
+	if !tokenUser.Valid {
+		line = common.GetLine() - 1
+		err = errors.New("Invalide Token")
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+			"error":    err,
+		}).Error()
+		return nil, nil, err
+	}
+
+	return claimsGene, claims, nil
 }
 
 func CreateLogin(w http.ResponseWriter, r *http.Request) {

@@ -145,7 +145,7 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 			//------------------------------------------------------------------------------
 
 			//---------------------vérfication de la validité du token----------------------
-			claims, err := login.VerifyValideTkn(Controler.LogControl, bearToken)
+			_, claims, err := login.VerifyValideTkn(Controler.LogControl, bearToken)
 			if err != nil {
 				if err == jwt.ErrSignatureInvalid {
 					line = common.GetLine() - 1
