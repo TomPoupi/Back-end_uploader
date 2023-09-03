@@ -3,7 +3,9 @@ package common
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"path/filepath"
@@ -15,7 +17,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var SecretKey = []byte("N1PCdw3M2B1TfJhoaY2mL736p2vCUc47")
+// SecretKey len = 24
+var SecretKey = []byte("abc&1*~#^2^#s1^=)^^7%b34")
+
+// suite de Byte utilisé pour l'encryptage
+var Bytes = []byte{35, 46, 57, 24, 85, 35, 24, 74, 87, 35, 88, 98, 66, 32, 14, 05}
 
 func FindProjectPath() string {
 
@@ -91,89 +97,69 @@ func GenerateRandomString(length int) string {
 }
 
 // Encrypt
-func Encrypt(logCommon *log.Logger, plaintext string) (string, error) {
+
+func Encode(b []byte) string {
+	return base64.StdEncoding.EncodeToString(b)
+}
+func Decode(logCommon *log.Logger, s string) ([]byte, error) {
+
+	Function := "[Decode]"
+	var line int
+
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		line = GetLine() - 1
+		logCommon.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on DecodeString",
+			"error":    err,
+		}).Error()
+		return nil, err
+	}
+	return data, nil
+}
+
+func Encrypt(logCommon *log.Logger, text string, MySecret string) (string, error) {
 
 	Function := "[Encrypt]"
 	var line int
 
-	aes, err := aes.NewCipher(SecretKey)
+	block, err := aes.NewCipher([]byte(MySecret))
 	if err != nil {
 		line = GetLine() - 1
 		logCommon.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error on Generaate Cipher block 1",
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Encode Key",
 			"error":    err,
 		}).Error()
 		return "", err
 	}
-
-	gcm, err := cipher.NewGCM(aes)
-	if err != nil {
-		line = GetLine() - 1
-		logCommon.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error on GCM ",
-			"error":    err,
-		}).Error()
-		return "", err
-	}
-
-	// We need a 12-byte nonce for GCM (modifiable if you use cipher.NewGCMWithNonceSize())
-	// A nonce should always be randomly generated for every encryption.
-	nonce := make([]byte, gcm.NonceSize())
-	_, err = rand.Read(nonce)
-	if err != nil {
-		line = GetLine() - 1
-		logCommon.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error on Genetate random ",
-			"error":    err,
-		}).Error()
-		return "", err
-	}
-
-	// ciphertext here is actually nonce+ciphertext
-	// So that when we decrypt, just knowing the nonce size
-	// is enough to separate it from the ciphertext.
-	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-
-	return string(ciphertext), nil
+	plainText := []byte(text)
+	cfb := cipher.NewCFBEncrypter(block, Bytes)
+	cipherText := make([]byte, len(plainText))
+	cfb.XORKeyStream(cipherText, plainText)
+	return Encode(cipherText), nil
 }
 
 // Decrypt
-func Decrypt(logCommon *log.Logger, ciphertext string) (string, error) {
+// Decrypt method is to extract back the encrypted text
+func Decrypt(logCommon *log.Logger, text string, MySecret string) (string, error) {
 
-	Function := "[Encrypt]"
+	Function := "[Decrypt]"
 	var line int
 
-	aes, err := aes.NewCipher(SecretKey)
+	block, err := aes.NewCipher([]byte(MySecret))
 	if err != nil {
 		line = GetLine() - 1
 		logCommon.WithFields(log.Fields{
 			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error on Generaate Cipher block 1",
+			"comment":  "L" + strconv.Itoa(line) + " - Error on Encode Key",
 			"error":    err,
 		}).Error()
 		return "", err
 	}
 
-	gcm, err := cipher.NewGCM(aes)
-	if err != nil {
-		line = GetLine() - 1
-		logCommon.WithFields(log.Fields{
-			"Function": Function,
-			"comment":  "L" + strconv.Itoa(line) + " - Error on GCM",
-			"error":    err,
-		}).Error()
-		return "", err
-	}
-
-	// Since we know the ciphertext is actually nonce+ciphertext
-	// And len(nonce) == NonceSize(). We can separate the two.
-	nonceSize := gcm.NonceSize()
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-
-	plaintext, err := gcm.Open(nil, []byte(nonce), []byte(ciphertext), nil)
+	cipherText, err := Decode(logCommon, text)
 	if err != nil {
 		line = GetLine() - 1
 		logCommon.WithFields(log.Fields{
@@ -184,5 +170,43 @@ func Decrypt(logCommon *log.Logger, ciphertext string) (string, error) {
 		return "", err
 	}
 
-	return string(plaintext), nil
+	cfb := cipher.NewCFBDecrypter(block, Bytes)
+	plainText := make([]byte, len(cipherText))
+	cfb.XORKeyStream(plainText, cipherText)
+
+	return string(plainText), nil
+}
+
+func RecupSecretKey(logCommon *log.Logger) (SecretKeyStruct, error) {
+
+	Function := "[RecupSecretKey]"
+	var line int
+
+	var Secret SecretKeyStruct
+
+	content, err := ioutil.ReadFile("./common/secret.json")
+	if err != nil {
+		line = GetLine() - 1
+		logCommon.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Open file",
+			"error":    err,
+		}).Error()
+		return Secret, err
+	}
+
+	err = json.Unmarshal(content, &Secret)
+	if err != nil {
+		line = GetLine() - 1
+		logCommon.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Unmarshal",
+			"error":    err,
+		}).Error()
+
+		return Secret, err
+
+	}
+
+	return Secret, nil
 }

@@ -37,6 +37,10 @@ type ClaimsGene struct {
 	jwt.RegisteredClaims
 }
 
+type SecretKeyStruct struct {
+	SecretKey string `json:"SecretKey"`
+}
+
 // type News struct {
 // 	Headline string
 // 	Body     string

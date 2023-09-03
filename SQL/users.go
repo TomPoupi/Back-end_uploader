@@ -10,6 +10,74 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func EncryptageChamp(logSQL *log.Logger, Champ string) (string, error) {
+
+	Function := "[EncryptageChamp]"
+	var line int
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*Recup Clé Secret Projet*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Secret, err := common.RecupSecretKey(logSQL)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on RecupSecretKey",
+			"error":    err,
+		}).Error()
+		return "", err
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*Cryptage de Champ*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	ChampCrypted, err := common.Encrypt(logSQL, Champ, Secret.SecretKey)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt champ",
+			"error":    err,
+		}).Error()
+
+		return "", err
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	return ChampCrypted, nil
+}
+
+func DecryptageChamp(logSQL *log.Logger, ChampCrypted string) (string, error) {
+
+	Function := "[EncryptageChamp]"
+	var line int
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*Recup Clé Secret Projet*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Secret, err := common.RecupSecretKey(logSQL)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on RecupSecretKey",
+			"error":    err,
+		}).Error()
+		return "", err
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*Decryptage de Champ*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Champ, err := common.Decrypt(logSQL, ChampCrypted, Secret.SecretKey)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Decrypt token",
+			"error":    err,
+		}).Error()
+		return "", err
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+	return Champ, nil
+}
+
 func SELECTAllUserByUsername(logSQL *log.Logger, db *sql.DB) (map[string]common.Users, error) {
 
 	Function := "[SELECTAllUserByUsername]"
@@ -47,11 +115,36 @@ func SELECTAllUserByUsername(logSQL *log.Logger, db *sql.DB) (map[string]common.
 			return nil, err
 		}
 
+		PasswordDecrypted, err := DecryptageChamp(logSQL, Password.String)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return nil, err
+		}
+
+		KeyDecrypted := Key.String
+		if Key.String != "no_key" {
+			KeyDecrypted, err = DecryptageChamp(logSQL, Key.String)
+			if err != nil {
+				line = common.GetLine() - 1
+				logSQL.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+					"error":    err,
+				}).Error()
+				return nil, err
+			}
+		}
+
 		OneUsers := common.Users{
 			Id:       Id,
 			Username: Username.String,
-			Password: Password.String,
-			Key:      Key.String,
+			Password: PasswordDecrypted,
+			Key:      KeyDecrypted,
 		}
 
 		MapUsers[Username.String] = OneUsers
@@ -121,7 +214,18 @@ func INSERTNewUser(logSQL *log.Logger, db *sql.DB, User common.Users) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(User.Id, User.Username, User.Password, User.Level)
+	Password, err := EncryptageChamp(logSQL, User.Password)
+	if err != nil {
+		line = common.GetLine() - 1
+		logSQL.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+			"error":    err,
+		}).Error()
+		return err
+	}
+
+	_, err = stmt.Exec(User.Id, User.Username, Password, User.Level)
 	if err != nil {
 		line = common.GetLine() - 1
 		logSQL.WithFields(log.Fields{
@@ -174,12 +278,37 @@ func SELECTAllUsers(logSQL *log.Logger, db *sql.DB) (map[int]common.Users, error
 			return nil, err
 		}
 
+		PasswordDecrypted, err := DecryptageChamp(logSQL, Password.String)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return nil, err
+		}
+
+		KeyDecrypted := Key.String
+		if Key.String != "no_key" {
+			KeyDecrypted, err = DecryptageChamp(logSQL, Key.String)
+			if err != nil {
+				line = common.GetLine() - 1
+				logSQL.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+					"error":    err,
+				}).Error()
+				return nil, err
+			}
+		}
+
 		OneUser := common.Users{
 			Id:       int(Id.Int64),
 			Username: Username.String,
-			Password: Password.String,
+			Password: PasswordDecrypted,
 			Level:    int(Level.Int64),
-			Key:      Key.String,
+			Key:      KeyDecrypted,
 		}
 
 		MapUsers[int(Id.Int64)] = OneUser
@@ -226,12 +355,38 @@ func SELECTOneUser(logSQL *log.Logger, db *sql.DB, id int) (map[int]common.Users
 			}).Error()
 			return nil, err
 		}
+
+		PasswordDecrypted, err := DecryptageChamp(logSQL, Password.String)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return nil, err
+		}
+
+		KeyDecrypted := Key.String
+		if Key.String != "no_key" {
+			KeyDecrypted, err = DecryptageChamp(logSQL, Key.String)
+			if err != nil {
+				line = common.GetLine() - 1
+				logSQL.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+					"error":    err,
+				}).Error()
+				return nil, err
+			}
+		}
+
 		OneUser := common.Users{
 			Id:       int(Id.Int64),
 			Username: Username.String,
-			Password: Password.String,
+			Password: PasswordDecrypted,
 			Level:    int(Level.Int64),
-			Key:      Key.String,
+			Key:      KeyDecrypted,
 		}
 
 		MapUsers[int(Id.Int64)] = OneUser
@@ -257,8 +412,20 @@ func UPDATEOneUser(logSQL *log.Logger, db *sql.DB, Body common.Users, id int) er
 		args = append(args, Body.Username)
 	}
 	if Body.Password != "" {
+
+		Password, err := EncryptageChamp(logSQL, Body.Password)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return err
+		}
+
 		qParts = append(qParts, "`password` = ?")
-		args = append(args, Body.Password)
+		args = append(args, Password)
 	}
 	if Body.Level != 0 {
 		qParts = append(qParts, "`level` = ?")
@@ -353,16 +520,36 @@ func SecreteUPDATEOneUser(logSQL *log.Logger, db *sql.DB, Body common.Users, id 
 		args = append(args, Body.Username)
 	}
 	if Body.Password != "" {
+		Password, err := EncryptageChamp(logSQL, Body.Password)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return err
+		}
 		qParts = append(qParts, "`password` = ?")
-		args = append(args, Body.Password)
+		args = append(args, Password)
 	}
 	if Body.Level != 0 {
 		qParts = append(qParts, "`level` = ?")
 		args = append(args, Body.Level)
 	}
 	if Body.Key != "" {
+		Key, err := EncryptageChamp(logSQL, Body.Key)
+		if err != nil {
+			line = common.GetLine() - 1
+			logSQL.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Error on EncryptageChamp",
+				"error":    err,
+			}).Error()
+			return err
+		}
 		qParts = append(qParts, "`key` = ?")
-		args = append(args, Body.Key)
+		args = append(args, Key)
 	}
 
 	fin := " WHERE `id` = ?;"

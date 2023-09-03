@@ -42,6 +42,7 @@ func main() {
 	}).Info()
 
 	OpenAccess := 10
+	UserAccess := 50
 	RestrictedAccess := 100
 
 	r := mux.NewRouter()
@@ -52,9 +53,9 @@ func main() {
 
 	r.Handle("/create_user", authMiddlerware(http.HandlerFunc(login.CreateLogin), RestrictedAccess)).Methods("POST")
 	r.Handle("/user", authMiddlerware(http.HandlerFunc(login.OperationAllUsers), RestrictedAccess)).Methods("GET")
-	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("GET")
-	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("PUT")
-	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), RestrictedAccess)).Methods("DELETE")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), UserAccess)).Methods("GET")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), UserAccess)).Methods("PUT")
+	r.Handle("/user/{id}", authMiddlerware(http.HandlerFunc(login.OperationOneUser), UserAccess)).Methods("DELETE")
 
 	r.Handle("/video", authMiddlerware(http.HandlerFunc(video.OperationAllVideo), OpenAccess)).Methods("GET")
 	r.Handle("/video", authMiddlerware(http.HandlerFunc(video.OperationAllVideo), RestrictedAccess)).Methods("DELETE")
@@ -104,7 +105,7 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 		}
 		//------------------------------------------------------------------------------
 
-		//******************************OpenAccess**************************************
+		//********************************OpenAccess************************************
 		if LevelAccess == 10 {
 
 			line = common.GetLine()
@@ -117,6 +118,105 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 
 		}
 		//******************************************************************************
+
+		//********************************UserAccess************************************
+		if LevelAccess == 50 {
+
+			line = common.GetLine()
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - RestritedAccess Route Used",
+			}).Info()
+
+			//-------------------------------Recup Token------------------------------------
+			// prend le token actuelle
+			bearToken := r.Header.Get("Authorization")
+			if bearToken == "" {
+				line = common.GetLine() - 1
+				err := errors.New("Token empty , user UnAuthorized")
+				Controler.LogControl.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+					"error":    err,
+				}).Error()
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+
+			}
+			//------------------------------------------------------------------------------
+
+			//---------------------vérfication de la validité du token----------------------
+			_, claims, err := login.VerifyValideTkn(Controler.LogControl, bearToken)
+			if err != nil {
+				if err == jwt.ErrSignatureInvalid {
+					line = common.GetLine() - 1
+					Controler.LogControl.WithFields(log.Fields{
+						"Function": Function,
+						"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+						"error":    err,
+					}).Error()
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return
+				}
+				if err.Error() == "Invalide Token" {
+					line = common.GetLine() - 1
+					Controler.LogControl.WithFields(log.Fields{
+						"Function": Function,
+						"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+						"error":    err,
+					}).Error()
+					http.Error(w, err.Error(), http.StatusUnauthorized)
+					return
+				}
+				line = common.GetLine() - 1
+				Controler.LogControl.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+					"error":    err,
+				}).Error()
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			line = common.GetLine()
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - Token Valid !",
+			}).Info()
+			//------------------------------------------------------------------------------
+
+			//---------------vérfication de niveau d'accès de l'utilisateur-----------------
+
+			MapUsers, err := SQL.SELECTOneUser(Controler.LogControl, Controler.DB, claims.Id)
+			if err != nil {
+				Controler.LogControl.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error on SQL.SELECTOneUser",
+					"error":    err,
+				}).Error()
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			if MapUsers[claims.Id].Level < 50 {
+				err = errors.New(" User not enough privilege")
+				line = common.GetLine() - 1
+				Controler.LogControl.WithFields(log.Fields{
+					"Function": Function,
+					"comment":  "L" + strconv.Itoa(line) + " - Error token user",
+					"error":    err,
+				}).Error()
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+
+			//------------------------------------------------------------------------------
+
+			r.Header.Set("UserName", MapUsers[claims.Id].Username)
+			r.Header.Set("UserId", strconv.Itoa(MapUsers[claims.Id].Id))
+			r.Header.Set("UserLevel", strconv.Itoa(MapUsers[claims.Id].Level))
+			next.ServeHTTP(w, r)
+		}
 
 		//**************************-RestrictedAccess***********************************
 		if LevelAccess == 100 {
@@ -223,7 +323,9 @@ func authMiddlerware(next http.Handler, LevelAccess int) http.Handler {
 
 			//------------------------------------------------------------------------------
 
-			r.Header.Set("User", MapUsers[claims.Id].Username)
+			r.Header.Set("UserName", MapUsers[claims.Id].Username)
+			r.Header.Set("UserId", strconv.Itoa(MapUsers[claims.Id].Id))
+			r.Header.Set("UserLevel", strconv.Itoa(MapUsers[claims.Id].Level))
 			next.ServeHTTP(w, r)
 		}
 		//******************************************************************************

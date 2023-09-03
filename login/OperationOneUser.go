@@ -37,6 +37,36 @@ func OperationOneUser(w http.ResponseWriter, r *http.Request) {
 
 	//--------------------------------END Init---------------------------------------
 
+	//-------------------------------Verify User-------------------------------------
+
+	UserLevel, err := strconv.Atoi(r.Header.Get("UserLevel"))
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Convert string to int",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if UserLevel < 100 {
+		if r.Header.Get("UserId") != mux.Vars(r)["id"] {
+			err := errors.New("User UnAuthorized")
+			line = common.GetLine() - 1
+			Controler.LogControl.WithFields(log.Fields{
+				"Function": Function,
+				"comment":  "L" + strconv.Itoa(line) + " - User UnAuthorized",
+				"error":    err,
+			}).Error()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+
+		}
+	}
+
+	//-------------------------------------------------------------------------------
+
 	//********************************* GET ************************************
 	if r.Method == "GET" {
 
@@ -62,7 +92,7 @@ func OperationOneUser(w http.ResponseWriter, r *http.Request) {
 
 		//--------------------------------------------------------------------------
 
-		//-------------------------- GET One video ---------------------------------
+		//-------------------------- GET One user ---------------------------------
 		mapUsers, err := SQL.SELECTOneUser(Controler.LogControl, Controler.DB, id)
 		if err != nil {
 			line = common.GetLine() - 1

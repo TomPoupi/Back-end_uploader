@@ -66,9 +66,10 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verif si le user Existe que le password est le bon
+	// Verif si le user Existe et que le password est le bon
 	expectedPassword := MapUsers[creds.Username].Password
 	if _, ok := MapUsers[creds.Username]; !ok || expectedPassword != creds.Password {
+		err = errors.New("User not existe or Wrong pwd")
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
 			"Function": Function,
@@ -144,25 +145,38 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 
 	//---------------------------Generaiton Main Token------------------------------
 
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*Cryptage de Key*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-	// tokenString, err = common.Encrypt(Controler.LogControl, tokenString)
-	// if err != nil {
-	// 	line = common.GetLine() - 1
-	// 	Controler.LogControl.WithFields(log.Fields{
-	// 		"Function": Function,
-	// 		"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt token",
-	// 		"error":    err,
-	// 	}).Error()
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*Recup Clé Secret Projet*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Secret, err := common.RecupSecretKey(Controler.LogControl)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on RecupSecretKey",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*Cryptage de Key*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	KeyCrypted, err := common.Encrypt(Controler.LogControl, MapUsers[creds.Username].Key, Secret.SecretKey)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt token",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
 	// create claims => condition de validité du token
 	claimsGene := &common.ClaimsGene{
 		TokenUser:  tokenString,
-		KeyCrypted: []byte(MapUsers[creds.Username].Key),
+		KeyCrypted: []byte(KeyCrypted),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
@@ -172,7 +186,7 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	tokenGene := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsGene)
 
 	// récup du token en string
-	tokenGeneString, err := tokenGene.SignedString(common.SecretKey)
+	tokenGeneString, err := tokenGene.SignedString([]byte(Secret.SecretKey))
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -319,11 +333,26 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 	//------------------------------------------------------------------------------
 
 	//-----------------------------Main Token Generation---------------------------------
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*Recup Clé Secret Projet*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Secret, err := common.RecupSecretKey(Controler.LogControl)
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on RecupSecretKey",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
 	// re-création du token
 	claimsGene.TokenUser = tokenString
 	claimsGene.ExpiresAt = jwt.NewNumericDate(expirationTime)
 	tokenGene := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsGene)
-	tokenGeneString, err := tokenGene.SignedString(common.SecretKey)
+	tokenGeneString, err := tokenGene.SignedString([]byte(Secret.SecretKey))
 	if err != nil {
 		line = common.GetLine() - 1
 		Controler.LogControl.WithFields(log.Fields{
@@ -371,11 +400,24 @@ func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*common.ClaimsGene
 
 	strArr := strings.Split(bearerToken, " ")
 
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*Recup Clé Secret Projet*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+	Secret, err := common.RecupSecretKey(logOne)
+	if err != nil {
+		line = common.GetLine() - 1
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error on RecupSecretKey",
+			"error":    err,
+		}).Error()
+		return nil, nil, err
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
 	//Decode Main Token
 	tknStr := strArr[1]
 	claimsGene := &common.ClaimsGene{}
 	tkn, err := jwt.ParseWithClaims(tknStr, claimsGene, func(token *jwt.Token) (interface{}, error) {
-		return common.SecretKey, nil
+		return []byte(Secret.SecretKey), nil
 	})
 
 	if err != nil {
@@ -410,21 +452,17 @@ func VerifyValideTkn(logOne *log.Logger, bearerToken string) (*common.ClaimsGene
 	//Decode User Token
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*Decryptage de Key*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
-
-	// fmt.Println(string(claimsGene.KeyCrypted))
-	// decryptKey, err := common.Decrypt(logOne, string(claimsGene.KeyCrypted))
-	// if err != nil {
-	// 	line = common.GetLine() - 1
-	// 	logOne.WithFields(log.Fields{
-	// 		"Function": Function,
-	// 		"comment":  "L" + strconv.Itoa(line) + " - Error Encrypt token",
-	// 		"error":    err,
-	// 	}).Error()
-	// 	return nil, nil, err
-	// }
-	// fmt.Println(string(decryptKey))
-	// claimsGene.KeyCrypted = []byte(decryptKey)
-
+	DecryptKey, err := common.Decrypt(logOne, string(claimsGene.KeyCrypted), Secret.SecretKey)
+	if err != nil {
+		line = common.GetLine() - 1
+		logOne.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Decrypt token",
+			"error":    err,
+		}).Error()
+		return nil, nil, err
+	}
+	claimsGene.KeyCrypted = []byte(DecryptKey)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
 	claims := &common.Claims{}
@@ -482,6 +520,35 @@ func CreateLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//------------------------------------------------------------------------------
+
+	//-------------------------------Verify User-------------------------------------
+
+	UserLevel, err := strconv.Atoi(r.Header.Get("UserLevel"))
+	if err != nil {
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - Error Convert string to int",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if UserLevel < 100 {
+
+		err := errors.New("User UnAuthorized")
+		line = common.GetLine() - 1
+		Controler.LogControl.WithFields(log.Fields{
+			"Function": Function,
+			"comment":  "L" + strconv.Itoa(line) + " - User UnAuthorized",
+			"error":    err,
+		}).Error()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+
+	}
+
+	//-------------------------------------------------------------------------------
 
 	//-------------------------------Decode Body------------------------------------
 	var creds common.Users
