@@ -1,8 +1,8 @@
 ﻿# uploader
 
  ## desc rapide
- Server back end d'upload de fichier en goldang
- ce projet est à l'arret mais permet de référencer la manière dont on peut implémenter des middleware ,des requetes http, des appels en base de donnée ainsi que l'utilisation de form-data dans le cadre d'un projet en golang
+ Server back end d'upload de fichier en goldang.
+ Ce projet est à l'arret mais permet de référencer la manière dont on peut implémenter des middleware ,des requetes http, des appels en base de donnée ainsi que l'utilisation de form-data dans le cadre d'un projet en golang
 
  ## pré requis
  server mariadb
